@@ -64,7 +64,7 @@ async function buildAuthHeaders(extra = {}) {
   const token = await getSessionToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
   // CORS origin hint (not a CORS header setter, but can be useful for backend checks)
-  const origin = process.env.REACT_APP_FRONTEND_URL || window.location.origin;
+  const origin = process.env.REACT_APP_FRONTEND_URL || (typeof window !== 'undefined' ? window.location.origin : '');
   headers["X-Client-Origin"] = origin;
   return headers;
 }

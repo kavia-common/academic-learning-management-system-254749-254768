@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { getSupabaseClient } from '../supabaseClient';
 
@@ -9,7 +9,13 @@ import { getSupabaseClient } from '../supabaseClient';
  */
 export default function Courses() {
   /** This is a public function. Renders courses listing. */
-  const supabase = getSupabaseClient();
+  const supabase = useMemo(() => {
+    try {
+      return getSupabaseClient();
+    } catch {
+      return null;
+    }
+  }, []);
   const [courses, setCourses] = useState([]);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState('');
@@ -18,6 +24,12 @@ export default function Courses() {
     const load = async () => {
       setLoading(true);
       setErr('');
+      if (!supabase) {
+        // Preview-friendly fallback when Supabase is not configured
+        setCourses([]);
+        setLoading(false);
+        return;
+      }
       const { data, error } = await supabase
         .from('courses')
         .select('id, title, description')

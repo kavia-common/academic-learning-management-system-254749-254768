@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { getSupabaseClient } from '../supabaseClient';
 
 /**
@@ -9,7 +9,13 @@ import { getSupabaseClient } from '../supabaseClient';
  */
 export default function Login() {
   /** This is a public function. Renders login page. */
-  const supabase = getSupabaseClient();
+  const supabase = useMemo(() => {
+    try {
+      return getSupabaseClient();
+    } catch {
+      return null;
+    }
+  }, []);
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState({ loading: false, error: '', success: '' });
 
@@ -17,6 +23,9 @@ export default function Login() {
     e.preventDefault();
     setStatus({ loading: true, error: '', success: '' });
     try {
+      if (!supabase) {
+        throw new Error('Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.');
+      }
       // emailRedirectTo should be site URL; rely on environment variable REACT_APP_FRONTEND_URL if present
       const emailRedirectTo =
         (process.env.REACT_APP_FRONTEND_URL || window.location.origin) + '/';
@@ -34,6 +43,11 @@ export default function Login() {
   return (
     <div className="card" style={{ maxWidth: 420, margin: '40px auto' }}>
       <h2 style={{ marginTop: 0 }}>Login</h2>
+      {!supabase && (
+        <p style={{ color: '#EF4444' }}>
+          Supabase is not configured. Please set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY to enable login.
+        </p>
+      )}
       <p style={{ color: '#6B7280' }}>Enter your email to receive a magic sign-in link.</p>
       <form onSubmit={handleSubmit}>
         <label className="label" htmlFor="email">Email</label>
@@ -48,7 +62,7 @@ export default function Login() {
           autoComplete="email"
         />
         <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
-          <button className="btn btn-primary" disabled={status.loading}>
+          <button className="btn btn-primary" disabled={status.loading || !supabase}>
             {status.loading ? 'Sending...' : 'Send Magic Link'}
           </button>
         </div>

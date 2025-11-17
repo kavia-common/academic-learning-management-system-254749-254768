@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { getSupabaseClient } from '../supabaseClient';
 
@@ -10,7 +10,13 @@ import { getSupabaseClient } from '../supabaseClient';
 export default function CourseDetails() {
   /** This is a public function. Renders course details and edit form. */
   const { id } = useParams();
-  const supabase = getSupabaseClient();
+  const supabase = useMemo(() => {
+    try {
+      return getSupabaseClient();
+    } catch {
+      return null;
+    }
+  }, []);
   const navigate = useNavigate();
   const [form, setForm] = useState({ title: '', description: '' });
   const [loading, setLoading] = useState(true);
@@ -20,6 +26,11 @@ export default function CourseDetails() {
   useEffect(() => {
     const load = async () => {
       setLoading(true);
+      if (!supabase) {
+        setErr('Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.');
+        setLoading(false);
+        return;
+      }
       const { data, error } = await supabase
         .from('courses')
         .select('id, title, description')
@@ -41,6 +52,11 @@ export default function CourseDetails() {
     e.preventDefault();
     setSaving(true);
     setErr('');
+    if (!supabase) {
+      setErr('Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.');
+      setSaving(false);
+      return;
+    }
     const { error } = await supabase
       .from('courses')
       .update({ title: form.title, description: form.description })
@@ -51,6 +67,10 @@ export default function CourseDetails() {
 
   const onDelete = async () => {
     if (!window.confirm('Delete this course?')) return;
+    if (!supabase) {
+      setErr('Supabase is not configured. Set REACT_APP_SUPABASE_URL and REACT_APP_SUPABASE_ANON_KEY.');
+      return;
+    }
     const { error } = await supabase.from('courses').delete().eq('id', id);
     if (error) {
       setErr(error.message);
@@ -88,10 +108,10 @@ export default function CourseDetails() {
           />
         </div>
         <div className="col-12" style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-primary" disabled={saving}>
+          <button className="btn btn-primary" disabled={saving || !supabase}>
             {saving ? 'Saving...' : 'Save'}
           </button>
-          <button type="button" className="btn btn-secondary" onClick={onDelete}>
+          <button type="button" className="btn btn-secondary" onClick={onDelete} disabled={!supabase}>
             Delete
           </button>
         </div>

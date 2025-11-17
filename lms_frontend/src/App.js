@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useEffect, useMemo, useState } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import './App.css';
 import './components/layout.css';
 import Layout from './components/Layout';
@@ -19,17 +19,19 @@ function App() {
   /** This is a public function. Main application entry component. */
   const [theme, setTheme] = useState('light');
   const [session, setSession] = useState(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
   const [backendHealthy, setBackendHealthy] = useState(true);
   const [healthChecked, setHealthChecked] = useState(false);
-  const supabase = (() => {
+
+  // Build supabase client if env present; otherwise null (preview-friendly)
+  const supabase = useMemo(() => {
     try {
       return getSupabaseClient();
     } catch (e) {
-      // In case env vars are missing, we still render the UI and show login page,
-      // but operations will fail with meaningful error.
+      console.warn('Supabase not configured:', e?.message || e);
       return null;
     }
-  })();
+  }, []);
 
   // Apply theme to document element
   useEffect(() => {
@@ -53,34 +55,71 @@ function App() {
 
   // Expose token getter for optional consumers
   useEffect(() => {
-    window.__getSupabaseSessionToken = async () => await getSessionToken();
+    window.__getSupabaseSessionToken = async () => await getSessionToken().catch(() => null);
   }, []);
 
   // Supabase session listener
   useEffect(() => {
-    if (!supabase) return;
+    let unsub = null;
     let mounted = true;
+
     const init = async () => {
-      const { data } = await supabase.auth.getSession();
-      if (mounted) setSession(data.session);
+      if (!supabase) {
+        // No supabase configured; consider session checked but null
+        setSession(null);
+        setSessionChecked(true);
+        return;
+      }
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (mounted) {
+          if (!error) setSession(data?.session || null);
+          setSessionChecked(true);
+        }
+      } catch {
+        if (mounted) setSessionChecked(true);
+      }
+      const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
+        setSession(newSession);
+      });
+      unsub = sub?.subscription;
     };
+
     init();
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, newSession) => {
-      setSession(newSession);
-    });
+
     return () => {
       mounted = false;
-      sub?.subscription?.unsubscribe();
+      try {
+        unsub?.unsubscribe?.();
+      } catch {
+        // ignore
+      }
     };
   }, [supabase]);
 
   const onSignOut = async () => {
-    if (!supabase) return;
-    await supabase.auth.signOut();
+    if (!supabase) {
+      // No-op if supabase is not configured
+      return;
+    }
+    try {
+      await supabase.auth.signOut();
+    } catch {
+      // ignore signout errors in preview
+    }
   };
 
+  // Auth gate with safe waiting until session is checked to avoid premature redirects
   const RequireAuth = ({ children }) => {
+    const location = useLocation();
+    if (!sessionChecked) {
+      return <div className="card"><p>Loading...</p></div>;
+    }
     if (!session) {
+      // Allow login route even when unauthenticated
+      if (location.pathname === '/login') {
+        return children;
+      }
       return <Navigate to="/login" replace />;
     }
     return children;
@@ -88,7 +127,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Layout user={session?.user} onSignOut={onSignOut} backendHealthy={backendHealthy} healthChecked={healthChecked}>
+      <Layout user={session?.user || null} onSignOut={onSignOut} backendHealthy={backendHealthy} healthChecked={healthChecked}>
         <button
           className="btn btn-secondary"
           onClick={() => setTheme(prev => (prev === 'light' ? 'dark' : 'light'))}
@@ -100,10 +139,7 @@ function App() {
 
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route
-            path="/"
-            element={<Navigate to="/courses" replace />}
-          />
+          <Route path="/" element={<Navigate to="/courses" replace />} />
           <Route
             path="/courses"
             element={
