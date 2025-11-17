@@ -8,6 +8,7 @@ import Courses from './pages/Courses';
 import CreateCourse from './pages/CreateCourse';
 import CourseDetails from './pages/CourseDetails';
 import { getSupabaseClient } from './supabaseClient';
+import { backendHealthcheck, getSessionToken } from './services/api';
 
 /**
  * PUBLIC_INTERFACE
@@ -18,6 +19,8 @@ function App() {
   /** This is a public function. Main application entry component. */
   const [theme, setTheme] = useState('light');
   const [session, setSession] = useState(null);
+  const [backendHealthy, setBackendHealthy] = useState(true);
+  const [healthChecked, setHealthChecked] = useState(false);
   const supabase = (() => {
     try {
       return getSupabaseClient();
@@ -32,6 +35,26 @@ function App() {
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
   }, [theme]);
+
+  // Backend healthcheck banner
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      const res = await backendHealthcheck();
+      if (mounted) {
+        setBackendHealthy(res.ok);
+        setHealthChecked(true);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Expose token getter for optional consumers
+  useEffect(() => {
+    window.__getSupabaseSessionToken = async () => await getSessionToken();
+  }, []);
 
   // Supabase session listener
   useEffect(() => {
@@ -65,7 +88,7 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Layout user={session?.user} onSignOut={onSignOut}>
+      <Layout user={session?.user} onSignOut={onSignOut} backendHealthy={backendHealthy} healthChecked={healthChecked}>
         <button
           className="btn btn-secondary"
           onClick={() => setTheme(prev => (prev === 'light' ? 'dark' : 'light'))}

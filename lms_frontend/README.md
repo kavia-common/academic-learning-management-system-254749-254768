@@ -2,6 +2,29 @@
 
 This project provides a minimal React template with a clean, modern UI and minimal dependencies.
 
+## Environment & Integration
+
+Create a .env file (see .env.example) with:
+- REACT_APP_SUPABASE_URL
+- REACT_APP_SUPABASE_ANON_KEY
+- REACT_APP_FRONTEND_URL (http://localhost:3000 for local dev)
+- Optional: REACT_APP_BACKEND_URL (e.g., http://localhost:8000)
+- Optional: REACT_APP_FEATURE_FLAGS (JSON string), e.g.:
+  {"use_backend": true, "use_direct_supabase": true}
+
+Feature flags:
+- use_backend: when true and REACT_APP_BACKEND_URL is set, privileged actions (admin role update, grading, signed uploads) go through the backend with Authorization: Bearer <Supabase access token>.
+- use_direct_supabase: when true, keep direct Supabase CRUD for courses (phase 1 path).
+
+Healthcheck banner:
+- On load, the app calls GET {REACT_APP_BACKEND_URL}{REACT_APP_HEALTHCHECK_PATH or /api/v1/health}.
+- If it fails and backend is enabled, a red banner appears at the top indicating backend unavailability.
+
+CORS
+- Configure your backend CORS to allow origin REACT_APP_FRONTEND_URL and Authorization header.
+- All privileged backend calls include Authorization: Bearer <token> and X-Client-Origin: <frontend URL>.
+
+
 ## Features
 
 - **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React

@@ -17,4 +17,9 @@ Frontend requires the following environment variables:
 - REACT_APP_SUPABASE_ANON_KEY
 - REACT_APP_FRONTEND_URL (used for Supabase emailRedirectTo)
 
+Optional integration variables:
+- REACT_APP_BACKEND_URL (when set and feature flag use_backend=true, privileged actions route to backend with Supabase token)
+- REACT_APP_FEATURE_FLAGS as JSON, e.g. {"use_backend": true, "use_direct_supabase": true}
+- REACT_APP_HEALTHCHECK_PATH (default /api/v1/health)
+
 Ensure these are set in your environment for the lms_frontend React app.
